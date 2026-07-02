@@ -103,20 +103,24 @@ def run(module, client):
         if existing:
             result["changed"] = True
             result["actions"].append("deleted")
+            result["diff"] = {
+                "before": {"name": existing["name"], "color": existing.get("color")},
+                "after": {},
+            }
             if not module.check_mode:
                 client.delete_tag(existing["id"])
         return result
 
     if not existing:
+        color = params["color"] or DEFAULT_COLOR
         result["changed"] = True
         result["actions"].append("created")
+        result["diff"] = {
+            "before": {},
+            "after": {"name": params["name"], "color": color},
+        }
         if not module.check_mode:
-            tag = client.add_tag(
-                {
-                    "name": params["name"],
-                    "color": params["color"] or DEFAULT_COLOR,
-                }
-            )
+            tag = client.add_tag({"name": params["name"], "color": color})
             result["tag_id"] = tag["id"]
         return result
 
@@ -124,6 +128,10 @@ def run(module, client):
     if params["color"] is not None and existing.get("color") != params["color"]:
         result["changed"] = True
         result["actions"].append("updated")
+        result["diff"] = {
+            "before": {"name": params["name"], "color": existing.get("color")},
+            "after": {"name": params["name"], "color": params["color"]},
+        }
         if not module.check_mode:
             client.edit_tag(
                 {

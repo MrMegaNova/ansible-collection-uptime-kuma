@@ -1,0 +1,5 @@
+---
+# changelogs/ is generated/managed by antsibull-changelog; its YAML style differs
+# from the yamllint rules and should not be linted here.
+exclude_paths:
+  - changelogs/

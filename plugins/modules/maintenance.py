@@ -215,6 +215,7 @@ def run(module, client):
         if existing:
             result["changed"] = True
             result["actions"].append("deleted")
+            result["diff"] = {"before": {"title": params["title"]}, "after": {}}
             if not module.check_mode:
                 client.delete_maintenance(existing["id"])
         return result
@@ -227,6 +228,10 @@ def run(module, client):
     if not existing:
         result["changed"] = True
         result["actions"].append("created")
+        result["diff"] = {
+            "before": {},
+            "after": {"title": params["title"], "state": params["state"]},
+        }
         if not module.check_mode:
             maintenance_id = client.add_maintenance(
                 build_maintenance_payload(params)
@@ -279,6 +284,10 @@ def run(module, client):
         if not is_active and not scope_changed:
             return result
         result["changed"] = True
+        result["diff"] = {
+            "before": {"title": params["title"], "active": is_active},
+            "after": {"title": params["title"], "active": False},
+        }
         if not module.check_mode:
             apply_scope()
             if is_active:
@@ -300,6 +309,10 @@ def run(module, client):
     # Otherwise refresh the window (expired/ended/paused) and re-scope it.
     result["changed"] = True
     result["actions"].append("refreshed")
+    result["diff"] = {
+        "before": {"title": params["title"], "status": existing.get("status")},
+        "after": {"title": params["title"], "status": "under-maintenance"},
+    }
     if not module.check_mode:
         payload = build_maintenance_payload(params)
         payload["id"] = maintenance_id

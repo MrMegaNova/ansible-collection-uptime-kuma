@@ -186,13 +186,21 @@ def run(module, client):
         if exists:
             result["changed"] = True
             result["actions"].append("deleted")
+            result["diff"] = {"before": {"slug": slug}, "after": {}}
             if not module.check_mode:
                 client.delete_status_page(slug)
         return result
 
     if not exists:
+        after = {"slug": slug}
+        for option in CONFIG_KEYS:
+            if params[option] is not None:
+                after[option] = params[option]
+        if params["monitors"] is not None:
+            after["monitors"] = params["monitors"]
         result["changed"] = True
         result["actions"].append("created")
+        result["diff"] = {"before": {}, "after": after}
         if not module.check_mode:
             client.add_status_page(params["title"] or slug, slug)
             config = apply_overrides(client.get_status_page(slug)["config"], params)
@@ -216,6 +224,16 @@ def run(module, client):
     if config_changed or groups_changed:
         result["changed"] = True
         result["actions"].append("updated")
+        before = {"slug": slug}
+        after = {"slug": slug}
+        for option, key in CONFIG_KEYS.items():
+            if params[option] is not None:
+                before[option] = config.get(key)
+                after[option] = new_config.get(key)
+        if params["monitors"] is not None:
+            before["monitors"] = groups_signature(current_groups)
+            after["monitors"] = groups_signature(new_groups)
+        result["diff"] = {"before": before, "after": after}
         if not module.check_mode:
             client.save_status_page(
                 slug, new_config, new_config.get("icon"), new_groups

@@ -141,6 +141,10 @@ def run(module, client):
         if existing:
             result["changed"] = True
             result["actions"].append("deleted")
+            result["diff"] = {
+                "before": _normalize(json.loads(existing.get("config") or "{}")),
+                "after": {},
+            }
             if not module.check_mode:
                 client.delete_notification(existing["id"])
         return result
@@ -153,6 +157,7 @@ def run(module, client):
     if not existing:
         result["changed"] = True
         result["actions"].append("created")
+        result["diff"] = {"before": {}, "after": _normalize(desired)}
         if not module.check_mode:
             result["notification_id"] = client.add_notification(desired)
         return result
@@ -162,6 +167,10 @@ def run(module, client):
     if _normalize(current) != _normalize(desired):
         result["changed"] = True
         result["actions"].append("updated")
+        result["diff"] = {
+            "before": _normalize(current),
+            "after": _normalize(desired),
+        }
         if not module.check_mode:
             client.add_notification(desired, existing["id"])
 
