@@ -7,3 +7,4 @@ action_groups:
     - notification
     - status_page
     - monitor
+    - info
