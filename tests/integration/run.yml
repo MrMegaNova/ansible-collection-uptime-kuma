@@ -1,0 +1,211 @@
+---
+# Integration test for every module of the collection, run against a throwaway
+# Uptime Kuma instance provisioned by setup_kuma.py.
+- name: Integration tests for mrmeganova.uptime_kuma
+  hosts: localhost
+  gather_facts: false
+  vars:
+    kuma_url: "{{ lookup('ansible.builtin.env', 'KUMA_URL') | default('http://127.0.0.1:3001', true) }}"
+    kuma_user: "{{ lookup('ansible.builtin.env', 'KUMA_USER') | default('admin', true) }}"
+    kuma_pass: "{{ lookup('ansible.builtin.env', 'KUMA_PASS') | default('Adm1n-Str0ng-Pass!7', true) }}"
+  module_defaults:
+    group/mrmeganova.uptime_kuma.uptime_kuma:
+      api_url: "{{ kuma_url }}"
+      api_username: "{{ kuma_user }}"
+      api_password: "{{ kuma_pass }}"
+  tasks:
+    # --- tag ---
+    - name: Create tag
+      mrmeganova.uptime_kuma.tag:
+        name: production
+        color: "#059669"
+      register: tag_create
+    - name: Assert tag created
+      ansible.builtin.assert:
+        that:
+          - tag_create.changed
+          - "'created' in tag_create.actions"
+        fail_msg: "tag create: {{ tag_create }}"
+
+    - name: Create tag again
+      mrmeganova.uptime_kuma.tag:
+        name: production
+        color: "#059669"
+      register: tag_idem
+    - name: Assert tag idempotent
+      ansible.builtin.assert:
+        that:
+          - not tag_idem.changed
+        fail_msg: "tag idempotence: {{ tag_idem }}"
+
+    # --- notification ---
+    - name: Create notification
+      mrmeganova.uptime_kuma.notification:
+        name: ops-webhook
+        type: webhook
+        settings:
+          webhookURL: https://example.org/hook
+          webhookContentType: json
+      register: notif_create
+    - name: Assert notification created
+      ansible.builtin.assert:
+        that:
+          - notif_create.changed
+          - "'created' in notif_create.actions"
+        fail_msg: "notification create: {{ notif_create }}"
+
+    - name: Create notification again
+      mrmeganova.uptime_kuma.notification:
+        name: ops-webhook
+        type: webhook
+        settings:
+          webhookURL: https://example.org/hook
+          webhookContentType: json
+      register: notif_idem
+    - name: Assert notification idempotent
+      ansible.builtin.assert:
+        that:
+          - not notif_idem.changed
+        fail_msg: "notification idempotence: {{ notif_idem }}"
+
+    # --- monitor ---
+    - name: Create monitor
+      mrmeganova.uptime_kuma.monitor:
+        name: srv-01 http
+        type: http
+        url: https://example.org
+        interval: 60
+        notifications:
+          - ops-webhook
+      register: mon_create
+    - name: Assert monitor created
+      ansible.builtin.assert:
+        that:
+          - mon_create.changed
+          - "'created' in mon_create.actions"
+          - mon_create.monitor_id is not none
+        fail_msg: "monitor create: {{ mon_create }}"
+
+    - name: Create monitor again
+      mrmeganova.uptime_kuma.monitor:
+        name: srv-01 http
+        type: http
+        url: https://example.org
+        interval: 60
+        notifications:
+          - ops-webhook
+      register: mon_idem
+    - name: Assert monitor idempotent
+      ansible.builtin.assert:
+        that:
+          - not mon_idem.changed
+        fail_msg: "monitor idempotence: {{ mon_idem }}"
+
+    - name: Update monitor interval
+      mrmeganova.uptime_kuma.monitor:
+        name: srv-01 http
+        type: http
+        url: https://example.org
+        interval: 120
+      register: mon_update
+    - name: Assert monitor updated
+      ansible.builtin.assert:
+        that:
+          - mon_update.changed
+          - "'updated' in mon_update.actions"
+        fail_msg: "monitor update: {{ mon_update }}"
+
+    # --- status page (with monitors) ---
+    - name: Create status page with a monitor
+      mrmeganova.uptime_kuma.status_page:
+        slug: public
+        title: Public
+        monitors:
+          - srv-01 http
+      register: sp_create
+    - name: Assert status page created
+      ansible.builtin.assert:
+        that:
+          - sp_create.changed
+          - "'created' in sp_create.actions"
+        fail_msg: "status page create: {{ sp_create }}"
+
+    - name: Create status page again
+      mrmeganova.uptime_kuma.status_page:
+        slug: public
+        title: Public
+        monitors:
+          - srv-01 http
+      register: sp_idem
+    - name: Assert status page idempotent
+      ansible.builtin.assert:
+        that:
+          - not sp_idem.changed
+        fail_msg: "status page idempotence: {{ sp_idem }}"
+
+    # --- maintenance (present + paused) ---
+    - name: Open maintenance window
+      mrmeganova.uptime_kuma.maintenance:
+        title: patch srv-01
+        monitors:
+          - srv-01 http
+        duration_minutes: 30
+      register: mw_create
+    - name: Assert maintenance created
+      ansible.builtin.assert:
+        that:
+          - mw_create.changed
+          - "'created' in mw_create.actions"
+        fail_msg: "maintenance create: {{ mw_create }}"
+
+    - name: Pause maintenance window
+      mrmeganova.uptime_kuma.maintenance:
+        title: patch srv-01
+        monitors:
+          - srv-01 http
+        duration_minutes: 30
+        state: paused
+      register: mw_pause
+    - name: Assert maintenance paused
+      ansible.builtin.assert:
+        that:
+          - mw_pause.changed
+          - "'paused' in mw_pause.actions"
+        fail_msg: "maintenance pause: {{ mw_pause }}"
+
+    # --- info ---
+    - name: Gather resources
+      mrmeganova.uptime_kuma.info:
+        gather:
+          - monitors
+          - tags
+      register: info
+    - name: Assert info returned data without changing anything
+      ansible.builtin.assert:
+        that:
+          - not info.changed
+          - info.monitors | selectattr('name', 'equalto', 'srv-01 http') | list | length == 1
+          - info.tags | selectattr('name', 'equalto', 'production') | list | length == 1
+        fail_msg: "info: {{ info }}"
+
+    # --- teardown ---
+    - name: Delete maintenance window
+      mrmeganova.uptime_kuma.maintenance:
+        title: patch srv-01
+        state: absent
+    - name: Delete status page
+      mrmeganova.uptime_kuma.status_page:
+        slug: public
+        state: absent
+    - name: Delete monitor
+      mrmeganova.uptime_kuma.monitor:
+        name: srv-01 http
+        state: absent
+    - name: Delete notification
+      mrmeganova.uptime_kuma.notification:
+        name: ops-webhook
+        state: absent
+    - name: Delete tag
+      mrmeganova.uptime_kuma.tag:
+        name: production
+        state: absent
