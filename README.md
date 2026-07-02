@@ -108,6 +108,22 @@ toggled through the Uptime Kuma 2.x API.
   delegate_to: localhost
 ```
 
+### `mrmeganova.uptime_kuma.info`
+
+Read-only. Gathers monitors, status pages, notifications, tags and maintenance
+windows (filter with `gather`). Never reports a change.
+
+```yaml
+- name: Gather Uptime Kuma resources
+  mrmeganova.uptime_kuma.info:
+    api_url: https://status.example.org
+    api_username: admin
+    api_password: "{{ vault_kuma_password }}"
+    gather: [monitors, tags]
+  delegate_to: localhost
+  register: kuma
+```
+
 ## Sharing connection options
 
 Every module takes the same connection options. Rather than repeating them, set

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 (2026-07-02)
+
+- New `info` module: read-only gathering of monitors, status pages, notifications,
+  tags and maintenance windows, with an optional `gather` filter.
+- `maintenance` module: new `state: paused`, which ensures the window exists but
+  is paused and keeps its scope in sync without resetting the time window.
+
 ## 0.5.0 (2026-07-02)
 
 - New `monitor` module: create, update and delete monitors. Common fields are

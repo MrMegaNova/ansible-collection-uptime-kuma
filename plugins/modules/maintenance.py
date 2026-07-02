@@ -59,9 +59,11 @@ options:
     description:
       - V(present) creates the window if missing, or refreshes it (new time
         window) if it exists and is no longer active.
+      - V(paused) ensures the window exists but is paused; it keeps the scope in
+        sync without resetting the time window.
       - V(absent) deletes the window.
     type: str
-    choices: [present, absent]
+    choices: [present, paused, absent]
     default: present
 """
 
@@ -236,6 +238,10 @@ def run(module, client):
                 client.set_maintenance_status_pages(
                     maintenance_id, desired_status_pages
                 )
+            if params["state"] == "paused":
+                client.pause_maintenance(maintenance_id)
+        if params["state"] == "paused":
+            result["actions"].append("paused")
         return result
 
     maintenance_id = existing["id"]
@@ -257,7 +263,33 @@ def run(module, client):
             p["id"] for p in desired_status_pages
         )
 
-    # Already covering and correctly scoped: nothing to do.
+    scope_changed = (desired_monitors is not None and not monitors_match) or (
+        desired_status_pages is not None and not status_pages_match
+    )
+
+    def apply_scope():
+        if desired_monitors is not None and not monitors_match:
+            client.set_maintenance_monitors(maintenance_id, desired_monitors)
+        if desired_status_pages is not None and not status_pages_match:
+            client.set_maintenance_status_pages(maintenance_id, desired_status_pages)
+
+    if params["state"] == "paused":
+        is_active = bool(existing.get("active"))
+        # Already paused and correctly scoped: nothing to do.
+        if not is_active and not scope_changed:
+            return result
+        result["changed"] = True
+        if not module.check_mode:
+            apply_scope()
+            if is_active:
+                client.pause_maintenance(maintenance_id)
+        if scope_changed:
+            result["actions"].append("rescoped")
+        if is_active:
+            result["actions"].append("paused")
+        return result
+
+    # state == present: already covering and correctly scoped -> nothing to do.
     if (
         existing.get("status") == "under-maintenance"
         and monitors_match
@@ -265,19 +297,14 @@ def run(module, client):
     ):
         return result
 
-    # Otherwise refresh the window (expired/ended/inactive) and re-scope it.
+    # Otherwise refresh the window (expired/ended/paused) and re-scope it.
     result["changed"] = True
     result["actions"].append("refreshed")
     if not module.check_mode:
         payload = build_maintenance_payload(params)
         payload["id"] = maintenance_id
         client.edit_maintenance(payload)
-        if desired_monitors is not None and not monitors_match:
-            client.set_maintenance_monitors(maintenance_id, desired_monitors)
-        if desired_status_pages is not None and not status_pages_match:
-            client.set_maintenance_status_pages(
-                maintenance_id, desired_status_pages
-            )
+        apply_scope()
 
     return result
 
@@ -291,7 +318,11 @@ def main():
         status_pages=dict(type="list", elements="str"),
         all_status_pages=dict(type="bool", default=False),
         duration_minutes=dict(type="int", default=60),
-        state=dict(type="str", choices=["present", "absent"], default="present"),
+        state=dict(
+            type="str",
+            choices=["present", "paused", "absent"],
+            default="present",
+        ),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
