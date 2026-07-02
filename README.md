@@ -34,3 +34,42 @@ is active and the scope identical), supports `--check`.
     duration_minutes: 45
   delegate_to: localhost
 ```
+
+### `mrmeganova.uptime_kuma.tag`
+
+Manages tags (create, update colour, delete). Identified by `name`, idempotent,
+supports `--check`.
+
+```yaml
+- name: Ensure a "production" tag exists
+  mrmeganova.uptime_kuma.tag:
+    api_url: https://status.example.org
+    api_username: admin
+    api_password: "{{ vault_kuma_password }}"
+    name: production
+    color: "#059669"
+  delegate_to: localhost
+```
+
+## Sharing connection options
+
+Every module takes the same connection options. Rather than repeating them, set
+them once for the whole `uptime_kuma` action group with `module_defaults`:
+
+```yaml
+- hosts: localhost
+  module_defaults:
+    group/mrmeganova.uptime_kuma.uptime_kuma:
+      api_url: https://status.example.org
+      api_username: admin
+      api_password: "{{ vault_kuma_password }}"
+  tasks:
+    - name: Ensure a tag exists
+      mrmeganova.uptime_kuma.tag:
+        name: production
+    - name: Open a maintenance window
+      mrmeganova.uptime_kuma.maintenance:
+        title: "ansible-update srv-01"
+        monitors: [srv-01 http]
+        duration_minutes: 45
+```

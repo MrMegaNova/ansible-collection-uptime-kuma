@@ -1,2 +1,6 @@
 ---
 requires_ansible: ">=2.15.0"
+action_groups:
+  uptime_kuma:
+    - maintenance
+    - tag
