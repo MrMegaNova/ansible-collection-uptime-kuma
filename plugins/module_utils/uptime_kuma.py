@@ -15,6 +15,20 @@ except ImportError:
     SOCKETIO_IMPORT_ERROR = traceback.format_exc()
 
 
+def connection_argument_spec():
+    """Argument spec for the connection options shared by every module.
+
+    Mirrors the C(connection) documentation fragment.
+    """
+    return dict(
+        api_url=dict(type="str", required=True),
+        api_username=dict(type="str", required=True),
+        api_password=dict(type="str", required=True, no_log=True),
+        api_mfa_token=dict(type="str", default="", no_log=True),
+        api_timeout=dict(type="int", default=30),
+    )
+
+
 class UptimeKumaError(Exception):
     """Raised on connection, authentication or API call errors."""
 
@@ -38,6 +52,7 @@ class UptimeKumaClient:
             "monitorList": None,
             "maintenanceList": None,
             "statusPageList": None,
+            "notificationList": None,
         }
         self.sio = socketio.Client(reconnection=False)
         for event in self.pushed:
@@ -147,3 +162,64 @@ class UptimeKumaClient:
 
     def delete_maintenance(self, maintenance_id):
         self.call("deleteMaintenance", maintenance_id)
+
+    # --- Tags -----------------------------------------------------------
+    # 'getTags' returns the list directly in its ack (no push).
+    def get_tags(self):
+        return self.call("getTags")["tags"]
+
+    def add_tag(self, tag):
+        return self.call("addTag", tag)["tag"]
+
+    def edit_tag(self, tag):
+        return self.call("editTag", tag)["tag"]
+
+    def delete_tag(self, tag_id):
+        self.call("deleteTag", tag_id)
+
+    # --- Notifications --------------------------------------------------
+    # 'notificationList' is pushed as a list at login only (no request event).
+    def get_notifications(self):
+        return self._wait_pushed_list("notificationList")
+
+    def add_notification(self, notification, notification_id=None):
+        # notification_id=None -> add; otherwise edit that notification.
+        return self.call("addNotification", (notification, notification_id))["id"]
+
+    def delete_notification(self, notification_id):
+        self.call("deleteNotification", notification_id)
+
+    # --- Monitors -------------------------------------------------------
+    def get_monitor(self, monitor_id):
+        return self.call("getMonitor", monitor_id)["monitor"]
+
+    def add_monitor(self, monitor):
+        return self.call("add", monitor)["monitorID"]
+
+    def edit_monitor(self, monitor):
+        return self.call("editMonitor", monitor)["monitorID"]
+
+    def delete_monitor(self, monitor_id, delete_children=False):
+        self.call("deleteMonitor", (monitor_id, delete_children))
+
+    def pause_monitor(self, monitor_id):
+        self.call("pauseMonitor", monitor_id)
+
+    def resume_monitor(self, monitor_id):
+        self.call("resumeMonitor", monitor_id)
+
+    # --- Status pages ---------------------------------------------------
+    # Creation is two-step: addStatusPage(title, slug) then saveStatusPage(...).
+    def get_status_page(self, slug):
+        return self.call("getStatusPage", slug)
+
+    def add_status_page(self, title, slug):
+        self.call("addStatusPage", (title, slug))
+
+    def save_status_page(self, slug, config, img_data_url=None, public_group_list=None):
+        return self.call(
+            "saveStatusPage", (slug, config, img_data_url, public_group_list or [])
+        )
+
+    def delete_status_page(self, slug):
+        self.call("deleteStatusPage", slug)

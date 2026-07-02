@@ -20,33 +20,9 @@ description:
   - The maintenance window is identified by its exact I(title).
 author:
   - MrMegaNova (@MrMegaNova)
-requirements:
-  - python-socketio
-  - websocket-client
+extends_documentation_fragment:
+  - mrmeganova.uptime_kuma.connection
 options:
-  api_url:
-    description: URL of the Uptime Kuma instance.
-    type: str
-    required: true
-  api_username:
-    description:
-      - Username used to log in.
-      - Uptime Kuma API keys only cover the Prometheus metrics endpoint and
-        cannot be used with the Socket.IO API.
-    type: str
-    required: true
-  api_password:
-    description: Password used to log in.
-    type: str
-    required: true
-  api_mfa_token:
-    description: One-time 2FA token, if enabled on the account.
-    type: str
-    default: ""
-  api_timeout:
-    description: Connection and per-call timeout, in seconds.
-    type: int
-    default: 30
   title:
     description: Exact title of the maintenance window.
     type: str
@@ -133,6 +109,7 @@ from ansible_collections.mrmeganova.uptime_kuma.plugins.module_utils.uptime_kuma
     SOCKETIO_IMPORT_ERROR,
     UptimeKumaClient,
     UptimeKumaError,
+    connection_argument_spec,
     socketio,
 )
 
@@ -306,21 +283,18 @@ def run(module, client):
 
 
 def main():
+    argument_spec = connection_argument_spec()
+    argument_spec.update(
+        title=dict(type="str", required=True),
+        description=dict(type="str", default=""),
+        monitors=dict(type="list", elements="str"),
+        status_pages=dict(type="list", elements="str"),
+        all_status_pages=dict(type="bool", default=False),
+        duration_minutes=dict(type="int", default=60),
+        state=dict(type="str", choices=["present", "absent"], default="present"),
+    )
     module = AnsibleModule(
-        argument_spec=dict(
-            api_url=dict(type="str", required=True),
-            api_username=dict(type="str", required=True),
-            api_password=dict(type="str", required=True, no_log=True),
-            api_mfa_token=dict(type="str", default="", no_log=True),
-            api_timeout=dict(type="int", default=30),
-            title=dict(type="str", required=True),
-            description=dict(type="str", default=""),
-            monitors=dict(type="list", elements="str"),
-            status_pages=dict(type="list", elements="str"),
-            all_status_pages=dict(type="bool", default=False),
-            duration_minutes=dict(type="int", default=60),
-            state=dict(type="str", choices=["present", "absent"], default="present"),
-        ),
+        argument_spec=argument_spec,
         supports_check_mode=True,
     )
 

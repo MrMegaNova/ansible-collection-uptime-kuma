@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 (2026-07-02)
+
+- New `tag` module: create, update (colour) and delete Uptime Kuma tags.
+  Idempotent, supports check mode.
+- Connection options (`api_url`, `api_username`, `api_password`, `api_mfa_token`,
+  `api_timeout`) are now provided by a shared documentation fragment
+  (`mrmeganova.uptime_kuma.connection`) and a `connection_argument_spec()` helper,
+  so every module exposes them consistently.
+- Added the `uptime_kuma` action group, so `module_defaults` can set the
+  connection options once for every module of the collection.
+
 ## 0.3.0 (2026-07-02)
 
 - `maintenance` module: the window can be attached to status pages via
