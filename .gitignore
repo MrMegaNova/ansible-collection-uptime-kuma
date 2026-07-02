@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtualenv / uv
+.venv/
+
+# Ansible
+.ansible/
+*.retry
+
+# Built collection artifacts
+*.tar.gz
+/dist/
+
+# Local test material (throwaway Kuma instances, playbooks)
+tests/local/
+
+# Claude Code local settings (keep the shared CLAUDE.md, drop local state)
+.claude/settings.local.json

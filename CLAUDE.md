@@ -1,0 +1,110 @@
+# mrmeganova.uptime_kuma — Claude guide
+
+Ansible collection that drives **Uptime Kuma 2.x maintenance windows** through its
+Socket.IO API. Born from the need for `update.yml` (repo `ansible-infra`) to
+automatically put probes into maintenance during patching.
+
+**Purpose of this file:** keep the hard-won context and map the route to publish
+the collection on **GitHub + Ansible Galaxy**.
+
+## Structure
+
+```
+galaxy.yml                     # Galaxy metadata (bump version on every release)
+meta/runtime.yml               # requires_ansible
+README.md                      # user documentation
+CHANGELOG.md                   # log (manual, versioned)
+plugins/modules/maintenance.py # the only module
+plugins/module_utils/uptime_kuma.py  # minimal Socket.IO client
+```
+
+## Uptime Kuma 2.x protocol facts — DO NOT re-guess
+
+These points were verified by reading the server code (`louislam/uptime-kuma:2.4.0`)
+and tested for real. They are what break the community libraries (stuck on 1.23.x).
+
+- **No REST API**: everything goes through Socket.IO. **No token auth** — API keys
+  only cover the Prometheus metrics endpoint. So `username` + `password`
+  (+ optional 2FA).
+- **Slow login**: the server `await afterLogin()` (streams all the data) *before*
+  acknowledging the `login`. On a large instance, this can exceed 30 s → plan for a
+  generous `api_timeout`. Cold (right after a reboot), it is worse.
+- **Lists pushed as events**, as a dict keyed by id (str):
+  - `monitorList` — also retrievable on demand via the `getMonitorList` ack.
+  - `maintenanceList` — on demand via `getMaintenanceList`.
+  - `statusPageList` — **pushed only at login**, no request event. Hence
+    `get_status_pages()` which waits for the login push.
+- **`single` strategy**: `getStatus()` computes `under-maintenance` solely from
+  `start_date`/`end_date` vs now → **the window survives an Uptime Kuma restart**
+  (reloaded from the database). This is THE reason `update.yml` opens a
+  self-expiring window and never calls the API again after the reboot (Kuma may run
+  on the very host being rebooted).
+- **Assignments replaced wholesale**: `addMonitorMaintenance` and
+  `addMaintenanceStatusPage` do a `DELETE` then `INSERT` of the whole set.
+- **Dates in UTC** (`timezoneOption: "UTC"`) to be independent of the
+  controller/server timezone.
+- **Fresh install**: you need `POST /setup-database {"dbConfig":{"type":"sqlite"}}`
+  then wait for an internal restart before the Socket.IO login works. Otherwise the
+  websocket handshake returns the HTML of the setup page.
+
+## Testing (mandatory before touching the module)
+
+Throwaway instance, then tests via a playbook. The controller needs
+`python-socketio` + `websocket-client` (provided by the repo venv, `uv sync`).
+
+```bash
+docker run -d --rm --name kuma-test -p 127.0.0.1:3111:3001 louislam/uptime-kuma:2.4.0
+# wait for socket.io, then:
+curl -s -X POST http://127.0.0.1:3111/setup-database -H 'Content-Type: application/json' \
+  -d '{"dbConfig":{"type":"sqlite"}}'
+# wait for the restart, create the admin via the "setup" event (username, password),
+# create monitors ("add") and status pages ("addStatusPage" title, slug),
+# then run the test playbooks with `uv run ansible-playbook`.
+docker stop kuma-test
+```
+
+Cover: creation, idempotence (active window + same scope → unchanged), `--check`,
+persistence after `docker restart`, expiration (past window → `ended`), unknown
+monitors/pages → clean failure, `all_status_pages` vs `status_pages` (title or
+slug).
+
+## Conventions
+
+- FQCN everywhere; `ansible-lint` **production** profile must pass (the repo has a
+  `CHANGELOG.md`, required by the `galaxy[no-changelog]` rule).
+- Bump `version:` in `galaxy.yml` **and** add a `CHANGELOG.md` entry on every
+  behavior change.
+- The module supports `check_mode` and stays idempotent: keep it that way.
+
+## Route to GitHub + Ansible Galaxy
+
+Current state: the collection is installed locally via the `collections_path` of
+the root `ansible.cfg`. To publish it:
+
+1. **Galaxy namespace**: log in to galaxy.ansible.com (via GitHub) and make sure
+   you own the `mrmeganova` namespace (create it otherwise). The `namespace` in
+   `galaxy.yml` must match.
+2. **GitHub repository**: `https://github.com/MrMegaNova/ansible-collection-uptime-kuma`.
+   `repository`, `homepage`, `issues` and `documentation` in `galaxy.yml` point
+   there.
+3. **LICENSE**: `LICENSE` file present (GPL-3.0-or-later — matches `galaxy.yml`).
+   The module files carry the matching GPLv3 header, which is what
+   `validate-modules` enforces.
+4. **`build_ignore`** in `galaxy.yml` excludes from the artifact: `.git`,
+   `.github`, `.ansible`, `.claude`, `CLAUDE.md`, `.venv`, `__pycache__`,
+   `*.pyc`/`*.pyo`, `tests/local`.
+5. **Sanity tests**: from the collection, `ansible-test sanity --docker` (validates
+   the modules' docs/argspec). Fix before publishing.
+6. **Build & publish**:
+   ```bash
+   ansible-galaxy collection build            # -> mrmeganova-uptime_kuma-X.Y.Z.tar.gz
+   ansible-galaxy collection publish mrmeganova-uptime_kuma-X.Y.Z.tar.gz --token <galaxy-token>
+   ```
+   The token comes from galaxy.ansible.com > Preferences > API key.
+7. **GitHub Actions**: `.github/workflows/ci.yml` runs `ansible-lint` +
+   `ansible-test sanity` on pushes and pull requests, and builds/publishes the
+   collection on a `vX.Y.Z` tag (Galaxy token stored as the `GALAXY_API_KEY` repo
+   secret). Keep the tag == `version:` in `galaxy.yml`.
+8. **Python dependencies**: the collection needs them on the controller side
+   (`python-socketio`, `websocket-client`). Document this in the README for external
+   users (a collection cannot install them itself).

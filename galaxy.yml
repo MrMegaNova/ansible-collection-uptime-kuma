@@ -1,0 +1,27 @@
+---
+namespace: mrmeganova
+name: uptime_kuma
+version: 0.3.0
+readme: README.md
+authors:
+  - MrMegaNova
+description: Manage Uptime Kuma 2.x over its Socket.IO API (maintenance windows)
+license:
+  - GPL-3.0-or-later
+tags:
+  - monitoring
+repository: https://github.com/MrMegaNova/ansible-collection-uptime-kuma
+homepage: https://github.com/MrMegaNova/ansible-collection-uptime-kuma
+issues: https://github.com/MrMegaNova/ansible-collection-uptime-kuma/issues
+documentation: https://github.com/MrMegaNova/ansible-collection-uptime-kuma/blob/main/README.md
+build_ignore:
+  - .git
+  - .github
+  - .ansible
+  - .claude
+  - CLAUDE.md
+  - .venv
+  - __pycache__
+  - "*.pyc"
+  - "*.pyo"
+  - tests/local
