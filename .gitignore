@@ -19,3 +19,6 @@ tests/local/
 
 # Claude Code local settings (keep the shared CLAUDE.md, drop local state)
 .claude/settings.local.json
+
+# antsibull-changelog cache
+changelogs/.plugin-cache.yaml

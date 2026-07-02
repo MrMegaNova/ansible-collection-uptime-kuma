@@ -212,6 +212,10 @@ def run(module, client):
         if existing:
             result["changed"] = True
             result["actions"].append("deleted")
+            result["diff"] = {
+                "before": {"name": params["name"], "type": existing.get("type")},
+                "after": {},
+            }
             if not module.check_mode:
                 client.delete_monitor(existing["id"], params["delete_children"])
         return result
@@ -229,8 +233,14 @@ def run(module, client):
         }
 
     if not existing:
+        after = dict(fields)
+        after["type"] = params["type"]
+        after["name"] = params["name"]
+        if desired_notifs is not None:
+            after["notificationIDList"] = desired_notifs
         result["changed"] = True
         result["actions"].append("created")
+        result["diff"] = {"before": {}, "after": after}
         if not module.check_mode:
             payload = {
                 "type": params["type"],
@@ -257,6 +267,14 @@ def run(module, client):
     if changed_fields or changed_type or changed_notifs:
         result["changed"] = True
         result["actions"].append("updated")
+        before = {key: current.get(key) for key in fields}
+        after = dict(fields)
+        before["type"] = current.get("type")
+        after["type"] = params["type"]
+        if desired_notifs is not None:
+            before["notificationIDList"] = current.get("notificationIDList")
+            after["notificationIDList"] = desired_notifs
+        result["diff"] = {"before": before, "after": after}
         if not module.check_mode:
             payload = dict(current)
             payload["type"] = params["type"]
