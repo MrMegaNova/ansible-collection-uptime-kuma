@@ -4,3 +4,6 @@ action_groups:
   uptime_kuma:
     - maintenance
     - tag
+    - notification
+    - status_page
+    - monitor

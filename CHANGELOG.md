@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 (2026-07-02)
+
+- New `monitor` module: create, update and delete monitors. Common fields are
+  exposed directly, anything else via a free-form `settings` dict; optional
+  `notifications` assignment by name. Idempotent, supports check mode.
+- New `notification` module: create, update and delete notifications. Type-specific
+  configuration passed through `settings`. Idempotent, supports check mode.
+- New `status_page` module: create, update and delete status pages, including the
+  monitors shown on the page. Idempotent, supports check mode.
+- `module_utils`: the Socket.IO client now reads a status page's public JSON
+  (`/api/status-page/<slug>`) so status page updates preserve the monitor layout.
+
 ## 0.4.0 (2026-07-02)
 
 - New `tag` module: create, update (colour) and delete Uptime Kuma tags.

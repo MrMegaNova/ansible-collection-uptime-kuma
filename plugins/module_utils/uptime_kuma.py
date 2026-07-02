@@ -4,8 +4,10 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
+import json
 import time
 import traceback
+from ansible.module_utils.urls import open_url
 
 SOCKETIO_IMPORT_ERROR = None
 try:
@@ -212,6 +214,21 @@ class UptimeKumaClient:
     # Creation is two-step: addStatusPage(title, slug) then saveStatusPage(...).
     def get_status_page(self, slug):
         return self.call("getStatusPage", slug)
+
+    def get_status_page_public(self, slug):
+        """Fetch the public JSON of a status page (config + publicGroupList).
+
+        'getStatusPage' does not return the group/monitor layout, so read it
+        from the public HTTP endpoint to preserve or diff the monitor groups.
+        """
+        url = "%s/api/status-page/%s" % (self.url, slug)
+        try:
+            response = open_url(url, timeout=self.timeout)
+            return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            raise UptimeKumaError(
+                "Could not read public status page '%s': %s" % (slug, exc)
+            )
 
     def add_status_page(self, title, slug):
         self.call("addStatusPage", (title, slug))

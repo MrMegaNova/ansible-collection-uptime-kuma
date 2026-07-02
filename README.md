@@ -51,6 +51,63 @@ supports `--check`.
   delegate_to: localhost
 ```
 
+### `mrmeganova.uptime_kuma.monitor`
+
+Manages monitors (create/update/delete). Common fields are options; type-specific
+fields go through `settings`. Optional `notifications` (by name). Idempotent,
+supports `--check`.
+
+```yaml
+- name: Ensure an HTTP monitor exists
+  mrmeganova.uptime_kuma.monitor:
+    api_url: https://status.example.org
+    api_username: admin
+    api_password: "{{ vault_kuma_password }}"
+    name: srv-01 http
+    type: http
+    url: https://srv-01.example.org/health
+    interval: 30
+    notifications: [ops-webhook]
+  delegate_to: localhost
+```
+
+### `mrmeganova.uptime_kuma.notification`
+
+Manages notifications (create/update/delete). Type-specific configuration goes
+through `settings`. Idempotent, supports `--check`.
+
+```yaml
+- name: Ensure a webhook notification exists
+  mrmeganova.uptime_kuma.notification:
+    api_url: https://status.example.org
+    api_username: admin
+    api_password: "{{ vault_kuma_password }}"
+    name: ops-webhook
+    type: webhook
+    settings:
+      webhookURL: https://example.org/hook
+      webhookContentType: json
+  delegate_to: localhost
+```
+
+### `mrmeganova.uptime_kuma.status_page`
+
+Manages status pages (create/update/delete) and, optionally, the monitors shown
+on them. Idempotent, supports `--check`. Note: the `published` flag cannot be
+toggled through the Uptime Kuma 2.x API.
+
+```yaml
+- name: Ensure a public status page exists
+  mrmeganova.uptime_kuma.status_page:
+    api_url: https://status.example.org
+    api_username: admin
+    api_password: "{{ vault_kuma_password }}"
+    slug: public
+    title: Public status
+    monitors: [srv-01 http, srv-01 ping]
+  delegate_to: localhost
+```
+
 ## Sharing connection options
 
 Every module takes the same connection options. Rather than repeating them, set
