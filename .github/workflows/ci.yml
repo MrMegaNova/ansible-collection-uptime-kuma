@@ -35,9 +35,38 @@ jobs:
         working-directory: ansible_collections/mrmeganova/uptime_kuma
         run: ansible-test sanity --docker -v
 
+  integration:
+    name: integration (Uptime Kuma 2.4.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ansible_collections/mrmeganova/uptime_kuma
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core python-socketio websocket-client
+      - name: Start Uptime Kuma
+        run: >-
+          docker run -d --name kuma -p 127.0.0.1:3001:3001
+          louislam/uptime-kuma:2.4.0
+      - name: Provision Uptime Kuma
+        env:
+          KUMA_URL: http://127.0.0.1:3001
+        run: python ansible_collections/mrmeganova/uptime_kuma/tests/integration/setup_kuma.py
+      - name: Run integration playbook
+        working-directory: ansible_collections/mrmeganova/uptime_kuma
+        env:
+          KUMA_URL: http://127.0.0.1:3001
+          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}
+        run: ansible-playbook tests/integration/run.yml
+      - name: Uptime Kuma logs on failure
+        if: failure()
+        run: docker logs kuma
+
   publish:
     name: Build & publish to Galaxy
-    needs: [lint, sanity]
+    needs: [lint, sanity, integration]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
