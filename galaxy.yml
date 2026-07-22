@@ -1,7 +1,7 @@
 ---
 namespace: mrmeganova
 name: uptime_kuma
-version: 0.7.0
+version: 0.7.1
 readme: README.md
 authors:
   - MrMegaNova

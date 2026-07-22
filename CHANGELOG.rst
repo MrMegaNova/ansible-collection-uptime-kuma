@@ -4,6 +4,19 @@ mrmeganova.uptime\_kuma Release Notes
 
 .. contents:: Topics
 
+v0.7.1
+======
+
+Release Summary
+---------------
+
+Makes the maintenance module resilient to flaky scope-read Socket.IO acks on existing windows.
+
+Bugfixes
+--------
+
+- maintenance module no longer fails when the scope-read Socket.IO calls (``getMonitorMaintenance``, ``getMaintenanceStatusPage``) time out on an already-existing window; since the matching set calls are idempotent, the scope is simply re-applied instead of failing the task.
+
 v0.7.0
 ======
 

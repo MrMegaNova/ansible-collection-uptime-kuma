@@ -251,22 +251,33 @@ def run(module, client):
 
     maintenance_id = existing["id"]
 
+    # The scope-read calls (getMonitorMaintenance, getMaintenanceStatusPage) can
+    # have their Socket.IO ack stall behind the post-login data flood and time
+    # out. Since the matching set calls are idempotent (delete + insert), a
+    # failed read is treated as "does not match" so the scope is simply re-set,
+    # rather than failing the whole maintenance window.
     monitors_match = True
     if desired_monitors is not None:
-        current = sorted(
-            m.get("id") for m in client.get_maintenance_monitors(maintenance_id)
-        )
-        monitors_match = current == sorted(m["id"] for m in desired_monitors)
+        try:
+            current = sorted(
+                m.get("id") for m in client.get_maintenance_monitors(maintenance_id)
+            )
+            monitors_match = current == sorted(m["id"] for m in desired_monitors)
+        except UptimeKumaError:
+            monitors_match = False
 
     status_pages_match = True
     if desired_status_pages is not None:
-        current = sorted(
-            p.get("id")
-            for p in client.get_maintenance_status_pages(maintenance_id)
-        )
-        status_pages_match = current == sorted(
-            p["id"] for p in desired_status_pages
-        )
+        try:
+            current = sorted(
+                p.get("id")
+                for p in client.get_maintenance_status_pages(maintenance_id)
+            )
+            status_pages_match = current == sorted(
+                p["id"] for p in desired_status_pages
+            )
+        except UptimeKumaError:
+            status_pages_match = False
 
     scope_changed = (desired_monitors is not None and not monitors_match) or (
         desired_status_pages is not None and not status_pages_match

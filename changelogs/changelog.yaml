@@ -60,3 +60,15 @@ releases:
     fragments:
     - 0.7.0-diff-and-changelog.yml
     release_date: '2026-07-02'
+  0.7.1:
+    changes:
+      bugfixes:
+      - maintenance module no longer fails when the scope-read Socket.IO calls
+        (``getMonitorMaintenance``, ``getMaintenanceStatusPage``) time out on an
+        already-existing window; since the matching set calls are idempotent, the
+        scope is simply re-applied instead of failing the task.
+      release_summary: Makes the maintenance module resilient to flaky scope-read
+        Socket.IO acks on existing windows.
+    fragments:
+    - 0.7.1-resilient-scope-read.yml
+    release_date: '2026-07-22'
